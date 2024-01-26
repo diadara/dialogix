@@ -1,38 +1,37 @@
-const express = require('express');
-const socketIo = require('socket.io');
-const { createClient, LiveTranscriptionEvents, LiveConnectionState } = require("@deepgram/sdk");
-const cors = require('cors');
-const app = express();
-const http = require('http');
-const OpenAi = require('openai-api');
-const dotenv = require('dotenv');
+import express, { Express, Request, Response } from 'express';
+import { Server as SocketIoServer, Socket } from 'socket.io';
+import { createClient, LiveTranscriptionEvents, LiveConnectionState, Connection } from "@deepgram/sdk";
+import cors from 'cors';
+import http from 'http';
+import OpenAi from 'openai-api';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-openai = new OpenAi(process.env.OPENAI_API_KEY);
+const openai = new OpenAi();
 
-
+const app: Express = express();
 app.use(cors({ origin: '*' }));
+
 const server = http.createServer(app);
-const io = socketIo(server, {
+const io: SocketIoServer = new SocketIoServer(server, {
   cors: {
     origin: '*',
   }
 });
 
-const deepgramApiKey = "81698bbcba50c809ec13b51ed0e42797f926b6eb";
+const deepgramApiKey: string = "81698bbcba50c809ec13b51ed0e42797f926b6eb";
 const deepgram = createClient(deepgramApiKey);
-let connection;
+let connection: Connection | undefined;
 
-
-function bindDeepgramEvents(connecrtion, socket) {
-  connection.on(LiveTranscriptionEvents.Transcript, (data) => {
+function bindDeepgramEvents(connection: Connection, socket: Socket): void {
+  connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
     console.log("transcript");
     console.dir(data, { depth: null });
     socket.emit('transcript', data);
   });
 
-  connection.on(LiveTranscriptionEvents.Metadata, (data) => {
+  connection.on(LiveTranscriptionEvents.Metadata, (data: any) => {
     console.log("metadata");
     console.dir(data, { depth: null });
     // socket.emit('metadata', data);
@@ -43,51 +42,50 @@ function bindDeepgramEvents(connecrtion, socket) {
   });
 }
 
-
-
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
   console.log('a user connected');
-  // check if connection is active
 
   if (!connection || connection.getReadyState() !== LiveConnectionState.OPEN) {
-    // initialize deepgram connection
     connection = deepgram.listen.live({
       smart_format: true,
       model: 'nova-2',
       language: 'en-US',
-      speach_final: true,
+      speech_final: true,
     });
+
     connection.on(LiveTranscriptionEvents.Open, () => {
       bindDeepgramEvents(connection, socket);
     });
-    connection.on(LiveTranscriptionEvents.Error, (error) => {
+
+    connection.on(LiveTranscriptionEvents.Error, (error: any) => {
       console.error('Deepgram error:', error);
     });
-    console.log("connecrtion to deepgram");
+
+    console.log("connection to deepgram");
   }
 
-  //register envent listeners on deepgram connection to send data to the socket
-
-  //register event listener on socket to send audio to deepgram
-  socket.on('audio', (audio) => {
+  socket.on('audio', (audio: any) => {
     console.log('audio received');
-    // reintaialize connection if it is closed
+
     if (!connection || connection.getReadyState() !== LiveConnectionState.OPEN) {
-      // initialize deepgram connection
       connection = deepgram.listen.live({
         smart_format: true,
         model: 'nova-2',
         language: 'en-US',
-        speach_final: true,
+        speech_final: true,
       });
+
       connection.on(LiveTranscriptionEvents.Open, () => {
         bindDeepgramEvents(connection, socket);
       });
-      connection.on(LiveTranscriptionEvents.Error, (error) => {
+
+      connection.on(LiveTranscriptionEvents.Error, (error: any) => {
         console.error('Deepgram error:', error);
       });
-      console.log("connecrtion to deepgram");
+
+      console.log("connection to deepgram");
     }
+
     connection.send(audio);
   });
 
@@ -96,10 +94,9 @@ io.on('connection', (socket) => {
   });
 });
 
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   res.send('Hello World!');
-})
-
+});
 
 server.listen(3010, () => {
   console.log('listening on *:3010');
