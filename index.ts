@@ -1,10 +1,11 @@
 import express, { Express, Request, Response } from 'express';
 import { Server as SocketIoServer, Socket } from 'socket.io';
-import { createClient, LiveTranscriptionEvents, LiveConnectionState, Connection } from "@deepgram/sdk";
+import { createClient, LiveTranscriptionEvents, LiveConnectionState, LiveClient } from "@deepgram/sdk";
 import cors from 'cors';
 import http from 'http';
-import OpenAi from 'openai-api';
+import OpenAi from 'openai';
 import dotenv from 'dotenv';
+import { getNewChatbot } from './assistant';
 
 dotenv.config();
 
@@ -22,20 +23,26 @@ const io: SocketIoServer = new SocketIoServer(server, {
 
 const deepgramApiKey: string = "81698bbcba50c809ec13b51ed0e42797f926b6eb";
 const deepgram = createClient(deepgramApiKey);
-let connection: Connection | undefined;
+let connection: LiveClient | undefined;
 
-function bindDeepgramEvents(connection: Connection, socket: Socket): void {
-  connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
-    console.log("transcript");
-    console.dir(data, { depth: null });
-    socket.emit('transcript', data);
+function bindDeepgramEvents(connection: LiveClient, socket: Socket, chatbot: any): void {
+  connection.on(LiveTranscriptionEvents.Transcript, async (data: any) => {
+    // check if the transcript is final and has any words
+    if (data.is_final && data.channel.alternatives[0].transcript.length > 0) {
+      socket.emit('transcript', data);
+      console.log("user:", data.channel.alternatives[0].transcript);
+      let response = await chatbot.chat(data.channel.alternatives[0].transcript)
+      console.log("agent:", response);
+      socket.emit('agent', response)
+    }
+
   });
 
-  connection.on(LiveTranscriptionEvents.Metadata, (data: any) => {
-    console.log("metadata");
-    console.dir(data, { depth: null });
+  // connection.on(LiveTranscriptionEvents.Metadata, (data: any) => {
+    // console.log("metadata");
+    // console.dir(data, { depth: null });
     // socket.emit('metadata', data);
-  });
+  // });
 
   connection.on(LiveTranscriptionEvents.Close, () => {
     console.log('connection closed');
@@ -44,7 +51,9 @@ function bindDeepgramEvents(connection: Connection, socket: Socket): void {
 
 io.on('connection', (socket: Socket) => {
   console.log('a user connected');
-
+  let chatBot = getNewChatbot(`You are a helpful assistant that answer telephone for XYZ inc.
+   You will answer customer queries and book an appoinment for detailed consultation after asking a few questions.
+    you will recieve the questions from the customer and you will answer them with only the response for the question.`);
   if (!connection || connection.getReadyState() !== LiveConnectionState.OPEN) {
     connection = deepgram.listen.live({
       smart_format: true,
@@ -54,7 +63,8 @@ io.on('connection', (socket: Socket) => {
     });
 
     connection.on(LiveTranscriptionEvents.Open, () => {
-      bindDeepgramEvents(connection, socket);
+      if (connection)
+        bindDeepgramEvents(connection, socket, chatBot);
     });
 
     connection.on(LiveTranscriptionEvents.Error, (error: any) => {
@@ -67,26 +77,10 @@ io.on('connection', (socket: Socket) => {
   socket.on('audio', (audio: any) => {
     console.log('audio received');
 
-    if (!connection || connection.getReadyState() !== LiveConnectionState.OPEN) {
-      connection = deepgram.listen.live({
-        smart_format: true,
-        model: 'nova-2',
-        language: 'en-US',
-        speech_final: true,
-      });
-
-      connection.on(LiveTranscriptionEvents.Open, () => {
-        bindDeepgramEvents(connection, socket);
-      });
-
-      connection.on(LiveTranscriptionEvents.Error, (error: any) => {
-        console.error('Deepgram error:', error);
-      });
-
-      console.log("connection to deepgram");
+    if (connection && connection.getReadyState() === LiveConnectionState.OPEN) {
+      connection.send(audio);
     }
 
-    connection.send(audio);
   });
 
   socket.on('disconnect', () => {

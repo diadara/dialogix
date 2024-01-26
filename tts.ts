@@ -18,14 +18,3 @@ async function createSpeech(): Promise<void> {
 }
 
 createSpeech().catch(console.error);
-
-// try {
-//     PlayHT.init({
-//       apiKey:
-//         process.env.PLAYHT_API_KEY,
-//       userId:
-//         process.env.PLAYHT_USER_ID,
-//     });
-//   } catch (error) {
-//     console.log('Failed to initialise PlayHT SDK', error.message);
-//   }
