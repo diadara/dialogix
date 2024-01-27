@@ -6,7 +6,6 @@ import http from 'http';
 import OpenAi from 'openai';
 import dotenv from 'dotenv';
 import { getNewChatbot } from './assistant';
-
 dotenv.config();
 
 const openai = new OpenAi();
@@ -29,11 +28,26 @@ function bindDeepgramEvents(connection: LiveClient, socket: Socket, chatbot: any
   connection.on(LiveTranscriptionEvents.Transcript, async (data: any) => {
     // check if the transcript is final and has any words
     if (data.is_final && data.channel.alternatives[0].transcript.length > 0) {
-      socket.emit('transcript', data);
+      socket.emit('transcript', data.channel.alternatives[0].transcript);
       console.log("user:", data.channel.alternatives[0].transcript);
       let response = await chatbot.chat(data.channel.alternatives[0].transcript)
       console.log("agent:", response);
       socket.emit('agent', response)
+
+      // take the response and stream audio to the client
+      const responseAudio = await openai.audio.speech.create({
+        model: 'tts-1',
+        voice: 'alloy',
+        input: response,
+      });
+
+      const readableStream = responseAudio.body as unknown as NodeJS.ReadableStream;
+
+      readableStream.on('data', (chunk) => {
+        socket.emit('audio-chunk', chunk);
+      });
+
+      
     }
 
   });
@@ -61,6 +75,7 @@ io.on('connection', (socket: Socket) => {
       language: 'en-US',
       speech_final: true,
     });
+    console.log("connecting to deepgram");
 
     connection.on(LiveTranscriptionEvents.Open, () => {
       if (connection)
@@ -70,17 +85,14 @@ io.on('connection', (socket: Socket) => {
     connection.on(LiveTranscriptionEvents.Error, (error: any) => {
       console.error('Deepgram error:', error);
     });
-
-    console.log("connection to deepgram");
   }
 
+  // stream the recieved audio to deepgram
   socket.on('audio', (audio: any) => {
     console.log('audio received');
-
     if (connection && connection.getReadyState() === LiveConnectionState.OPEN) {
       connection.send(audio);
     }
-
   });
 
   socket.on('disconnect', () => {

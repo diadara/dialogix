@@ -6,7 +6,7 @@ dotenv.config();
 // gets API Key from environment variable OPENAI_API_KEY
 const openai = new OpenAi();
 
-async function createSpeech(): Promise<void> {
+async function createSpeech(): Promise<ReadableStream<Uint8Array> | null> {
   const response = await openai.audio.speech.create({
     model: 'tts-1',
     voice: 'alloy',
@@ -15,6 +15,7 @@ async function createSpeech(): Promise<void> {
 
   const stream = response.body;
   // You can now use the stream for further processing
+  return stream;
 }
 
 createSpeech().catch(console.error);
