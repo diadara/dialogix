@@ -1,21 +1,33 @@
 import dotenv from 'dotenv';
-import OpenAi from 'openai';
+import { PollyClient, SynthesizeSpeechCommand, LanguageCode, OutputFormat, VoiceId } from "@aws-sdk/client-polly";
+import { Readable } from 'stream';
 
 dotenv.config();
 
-// gets API Key from environment variable OPENAI_API_KEY
-const openai = new OpenAi();
+const awsConfig = {
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: "ap-south-1"
+};
 
-async function createSpeech(): Promise<ReadableStream<Uint8Array> | null> {
-  const response = await openai.audio.speech.create({
-    model: 'tts-1',
-    voice: 'alloy',
-    input: 'the quick brown fox jumped over the lazy dogs',
-  });
+export async function createSpeech(text: string): Promise<Readable | ReadableStream | Blob | null | undefined> {
+  console.log(awsConfig);
+  const pollyClient = new PollyClient(awsConfig);
+  const languageCode: LanguageCode = "en-IN";
 
-  const stream = response.body;
-  // You can now use the stream for further processing
-  return stream;
+  const params = {
+    OutputFormat: "mp3" as OutputFormat,
+    Text: text,
+    VoiceId: "Raveena" as VoiceId,
+    LanguageCode: languageCode
+  };
+
+  try {
+    const data = await pollyClient.send(new SynthesizeSpeechCommand(params));
+    const audioStream = data.AudioStream;
+    return audioStream;
+  } catch (error) {
+    console.error("Error synthesizing speech: ", error);
+    return null;
+  }
 }
-
-createSpeech().catch(console.error);
