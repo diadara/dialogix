@@ -2,3 +2,4 @@
 node_modules/*
 dialogixweb/node_modules/*
 .env
+dialogixweb
