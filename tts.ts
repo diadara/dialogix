@@ -11,7 +11,13 @@ const awsConfig = {
 };
 
 export async function createSpeech(text: string): Promise<Readable | ReadableStream | Blob | null | undefined> {
-  console.log(awsConfig);
+      // take the response and stream audio to the client
+      // const responseAudio = await openai.audio.speech.create({
+      //   model: 'tts-1',
+      //   voice: 'alloy',
+      //   input: response,
+      // });
+
   const pollyClient = new PollyClient(awsConfig);
   const languageCode: LanguageCode = "en-IN";
 

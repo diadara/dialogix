@@ -35,7 +35,7 @@ export function getNewChatbot(prompt: string): Chatbot {
             // store message history
             this.messageHistory.push({ role: "assistant", content: response, name: "Assistant" });
 
-            console.log("history", JSON.stringify(this.messageHistory, null, 2));
+            // console.log("history", JSON.stringify(this.messageHistory, null, 2));
             return response;
         }
     };
