@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { PollyClient, SynthesizeSpeechCommand, LanguageCode, OutputFormat, VoiceId } from "@aws-sdk/client-polly";
+import { PollyClient, SynthesizeSpeechCommand, LanguageCode, OutputFormat, VoiceId, Engine } from "@aws-sdk/client-polly";
 import { Readable } from 'stream';
 
 dotenv.config();
@@ -24,7 +24,10 @@ export async function createSpeech(text: string): Promise<Readable | ReadableStr
   const params = {
     OutputFormat: "mp3" as OutputFormat,
     Text: text,
-    VoiceId: "Raveena" as VoiceId,
+    Engine: "neural" as Engine,
+    // VoiceId: "Raveena" as VoiceId,
+    VoiceId: "Kajal" as VoiceId,
+    
     LanguageCode: languageCode
   };
 
