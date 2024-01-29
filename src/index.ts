@@ -128,6 +128,6 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Hello World!');
 });
 
-server.listen(3010, () => {
+server.listen(3010, '0.0.0.0', () => {
   console.log('listening on *:3010');
 });
