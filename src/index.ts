@@ -32,7 +32,7 @@ function bindDeepgramEvents(connection: LiveClient | null, socket: Socket, chatb
 
   connection.on(LiveTranscriptionEvents.Transcript, async (data: any) => {
     // check if the transcript is final and has any words
-    console.log(`is_final: ${data.is_final} ,  speech_final: ${data.speech_final} ,   ${data.channel.alternatives[0].transcript} `);
+    console.log(`is_final: ${data.is_final} ,  speech_final: ${data.speech_final} , wordlength ${data.channel.alternatives[0].words.length},  transcript:  ${data.channel.alternatives[0].transcript} , pending tr: ${pendingTranscript}, count: ${emptyTranscriptCount}`);
 
     if (data.channel.alternatives[0].words.length === 0) {
       emptyTranscriptCount++;
@@ -40,16 +40,19 @@ function bindDeepgramEvents(connection: LiveClient | null, socket: Socket, chatb
       pendingTranscript += data.channel.alternatives[0].transcript;
     }
 
-    let isFinal = data.speach_final || emptyTranscriptCount > 2;
+    let isFinal = data.speech_final || emptyTranscriptCount > 2;
 
     if (isFinal && pendingTranscript.length > 0) {
       // the transcript is final, send it to client and append to pending transcript
       // console.log(data.channel.alternatives[0].transcript);
       socket.emit('transcript', pendingTranscript);
-      console.log(`pending transcript: ${pendingTranscript}`);
-      let response = await chatbot.chat(pendingTranscript)
+      let query = pendingTranscript;
       pendingTranscript = '';
       emptyTranscriptCount = 0;
+      // clearing the que before calling chatbot
+      // if there is  another transcript that comes in  we don't want it to pick up the pending transcript
+      let response = await chatbot.chat(query)
+      console.log(`agent response:\n  query ${query} \n response ${response}`)
       socket.emit('agent', response)
 
       const readableStream = await createSpeech(response) as unknown as NodeJS.ReadableStream;
@@ -77,7 +80,7 @@ function getNewDeepGramConnection(): LiveClient {
     endpointing: 300,
   });
   connection.on(LiveTranscriptionEvents.Error, (error: any) => {
-    console.error('Deepgram error:', error);
+    console.log('Deepgram error:', error);
   });
   return connection;
 }
@@ -120,7 +123,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('disconnect', () => {
     console.log('user disconnected');
-    connection.finish();
+    // connection.finish();
   });
 });
 
