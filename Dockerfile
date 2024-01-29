@@ -38,4 +38,4 @@ COPY --from=build /app/dist ./dist
 ENV NODE_ENV="production"
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3010
-CMD [ "node", "index.js" ]
+CMD [ "node", "dist/index.js" ]
