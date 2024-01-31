@@ -6,10 +6,14 @@ import http from 'http';
 import dotenv from 'dotenv';
 import { getNewChatbot } from './assistant';
 import { createSpeech } from './tts'
+import morgan from 'morgan';
 dotenv.config();
 
+
+// Create a WebSocket server
 const app: Express = express();
 app.use(cors({ origin: '*' }));
+app.use(morgan('combined'));
 
 const server = http.createServer(app);
 const io: SocketIoServer = new SocketIoServer(server, {
@@ -22,7 +26,7 @@ const deepgramApiKey: string = process.env.DEEPGRAM_API || "";
 console.log(deepgramApiKey)
 const deepgram = createClient(deepgramApiKey);
 
-function bindDeepgramEvents(connection: LiveClient | null, socket: Socket, chatbot: any): void {
+function bindDeepgramEventsToSocketIO(connection: LiveClient | null, socket: Socket, chatbot: any): void {
   if (!connection) {
     console.log('connection not available');
     return;
@@ -101,7 +105,7 @@ io.on('connection', (socket: Socket) => {
   let connection = getNewDeepGramConnection();
   // always create a new deepgram connection when the socket reconnects
   connection.on(LiveTranscriptionEvents.Open, () => {
-    bindDeepgramEvents(connection, socket, chatBot);
+    bindDeepgramEventsToSocketIO(connection, socket, chatBot);
   });
 
   console.log("connecting to deepgram");
@@ -115,7 +119,7 @@ io.on('connection', (socket: Socket) => {
       console.log('connection expired, creating new connection');
       connection = getNewDeepGramConnection();
       connection.on(LiveTranscriptionEvents.Open, () => {
-        bindDeepgramEvents(connection, socket, chatBot);
+        bindDeepgramEventsToSocketIO(connection, socket, chatBot);
       })
     }
 
@@ -133,4 +137,8 @@ app.get('/', (req: Request, res: Response) => {
 
 server.listen(3010, '0.0.0.0', () => {
   console.log('listening on *:3010');
+});
+
+app.get('/health', (req: Request, res: Response) => {
+  res.send('healthy');
 });
