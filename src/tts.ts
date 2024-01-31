@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 import { PollyClient, SynthesizeSpeechCommand, LanguageCode, OutputFormat, VoiceId, Engine } from "@aws-sdk/client-polly";
-import { Readable } from 'stream';
+import { Transform, Readable, pipeline as pipelineCallback } from 'stream';
+import { promisify } from 'util';
+import * as ffmpeg from 'fluent-ffmpeg';
 
+const pipeline = promisify(pipelineCallback);
 dotenv.config();
 
 const awsConfig = {
@@ -39,4 +42,26 @@ export async function createSpeech(text: string): Promise<Readable | ReadableStr
     console.error("Error synthesizing speech: ", error);
     return null;
   }
+}
+
+// Transform stream to convert audio to µ-law and base64 encode
+export async function convertToMuLaw(audioStream: Readable): Promise<Readable> {
+  return new Promise((resolve, reject) => {
+    const convertedStream = new Readable().wrap(
+      ffmpeg(audioStream)
+        .audioCodec('pcm_mulaw')
+        .audioFrequency(8000)
+        .format('wav')
+        .on('error', (err: { message: string; }) => {
+          console.error('An error occurred: ' + err.message);
+          reject(err);
+        })
+        .on('end', () => {
+          console.log('Conversion finished.');
+        })
+        .stream()
+    );
+
+    resolve(convertedStream);
+  });
 }
