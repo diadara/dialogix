@@ -54,9 +54,13 @@ function bindDeepgramEventsToWS(connection: LiveClient | null, ws: WebSocket, ch
       let response = await chatbot.chat(query)
       console.log(`agent response:\n  query ${query} \n response ${response}`)
 
-      const readableStream = await createSpeech(response) as unknown as NodeJS.ReadableStream;
-      const readStream = new Readable().wrap(readableStream);
-      const convertedSteam = await convertToMuLaw(readStream);
+      const readableStream = await createSpeech(response)
+      // const readStream = new Readable().wrap(readableStream);
+      if (!readableStream) {
+        console.log('readable stream is null');
+        return;
+      }
+      const convertedSteam = await convertToMuLaw(readableStream);
       convertedSteam.on('data', (chunk) => {
         const message = {
           event: 'media',
