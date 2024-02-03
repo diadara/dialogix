@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 import { PollyClient, SynthesizeSpeechCommand, LanguageCode, OutputFormat, VoiceId, Engine } from "@aws-sdk/client-polly";
-import { Transform, Readable, pipeline as pipelineCallback } from 'stream';
+import { Transform, Readable, pipeline as pipelineCallback , PassThrough} from 'stream';
 import { promisify } from 'util';
-import * as ffmpeg from 'fluent-ffmpeg';
+import ffmpeg from 'fluent-ffmpeg';
 
 const pipeline = promisify(pipelineCallback);
 dotenv.config();
@@ -13,7 +13,7 @@ const awsConfig = {
   region: "ap-south-1"
 };
 
-export async function createSpeech(text: string): Promise<Readable | ReadableStream | Blob | null | undefined> {
+export async function createSpeech(text: string): Promise<Readable| null> {
       // take the response and stream audio to the client
       // const responseAudio = await openai.audio.speech.create({
       //   model: 'tts-1',
@@ -36,8 +36,8 @@ export async function createSpeech(text: string): Promise<Readable | ReadableStr
 
   try {
     const data = await pollyClient.send(new SynthesizeSpeechCommand(params));
-    const audioStream = data.AudioStream;
-    return audioStream;
+    const audioStream = data.AudioStream as Readable;
+    return audioStream || null;
   } catch (error) {
     console.error("Error synthesizing speech: ", error);
     return null;
@@ -47,21 +47,22 @@ export async function createSpeech(text: string): Promise<Readable | ReadableStr
 // Transform stream to convert audio to µ-law and base64 encode
 export async function convertToMuLaw(audioStream: Readable): Promise<Readable> {
   return new Promise((resolve, reject) => {
-    const convertedStream = new Readable().wrap(
-      ffmpeg(audioStream)
-        .audioCodec('pcm_mulaw')
-        .audioFrequency(8000)
-        .format('wav')
-        .on('error', (err: { message: string; }) => {
-          console.error('An error occurred: ' + err.message);
-          reject(err);
-        })
-        .on('end', () => {
-          console.log('Conversion finished.');
-        })
-        .stream()
-    );
 
-    resolve(convertedStream);
+    const passThrough = new PassThrough();
+
+    const convertedStream = ffmpeg(audioStream)
+      .audioCodec('pcm_mulaw')
+      .audioFrequency(8000)
+      .format('wav')
+      .on('error', (err: Error) => {
+        console.error('An error occurred: ' + err.message);
+        reject(err);
+      })
+      .on('end', () => {
+        console.log('Conversion finished.');
+      })
+      .stream(passThrough);
+
+    resolve(passThrough);
   });
 }
