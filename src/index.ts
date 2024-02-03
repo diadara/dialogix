@@ -55,7 +55,9 @@ function bindDeepgramEventsToSocketIO(connection: LiveClient | null, socket: Soc
       emptyTranscriptCount = 0;
       // clearing the que before calling chatbot
       // if there is  another transcript that comes in  we don't want it to pick up the pending transcript
-      let response = await chatbot.chat(query)
+      console.time("chatbot.chat");
+      let response = await chatbot.chat(query);
+      console.timeEnd("chatbot.chat");
       console.log(`agent response:\n  query ${query} \n response ${response}`)
       socket.emit('agent', response)
 
